@@ -24,7 +24,7 @@ from backend.vectorstore.faiss_store import VectorStore
 from backend.rag.pipeline import RAGPipeline, PipelineResponse
 from backend.rag.guardrails import Guardrails
 from backend.analytics.latency import LatencyTracker
-from backend.stt.sarvam_stt import WhisperSTT as SarvamSTT
+from backend.stt.sarvam_stt import ElevenLabsSTT
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -46,7 +46,7 @@ app.add_middleware(
 # --- Global state ---
 vector_store: Optional[VectorStore] = None
 rag_pipeline: Optional[RAGPipeline] = None
-stt_module: Optional[SarvamSTT] = None
+stt_module: Optional[ElevenLabsSTT] = None
 latency_tracker: Optional[LatencyTracker] = None
 
 
@@ -80,7 +80,7 @@ async def startup():
     logger.info("Initializing RAG pipeline components...")
 
     latency_tracker = LatencyTracker()
-    stt_module = SarvamSTT(config.stt)
+    stt_module = ElevenLabsSTT(config.stt)
     guardrails = Guardrails(config.guardrails)
 
     vector_store = VectorStore(config.vector_store)

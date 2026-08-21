@@ -7,8 +7,8 @@ uvicorn[standard]>=0.30.0
 pydantic>=2.9.0
 python-multipart>=0.0.9
 
-# Speech-to-Text (Local Whisper - Free)
-faster-whisper>=1.0.0
+# Speech-to-Text (ElevenLabs Scribe API)
+aiohttp>=3.10.0
 pydub>=0.25.1
 
 # Chunking & NLP

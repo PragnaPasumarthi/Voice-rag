@@ -1,66 +1,39 @@
 """
-Speech-to-Text module using local Whisper model.
-Completely free - runs locally, no API key needed.
-Supports 99 languages including Hindi, English, and Indian languages.
+Speech-to-Text module using ElevenLabs Scribe API.
+High-accuracy transcription in 90+ languages.
+Docs: https://elevenlabs.io/docs/capabilities/speech-to-text
 """
-import io
-import tempfile
 import os
+import aiohttp
 from typing import Dict, Any, Optional
 
-try:
-    from faster_whisper import WhisperModel
-    FASTER_WHISPER_AVAILABLE = True
-except ImportError:
-    FASTER_WHISPER_AVAILABLE = False
 
-try:
-    import whisper
-    WHISPER_AVAILABLE = True
-except ImportError:
-    WHISPER_AVAILABLE = False
-
-try:
-    from pydub import AudioSegment
-    PYDUB_AVAILABLE = True
-except ImportError:
-    PYDUB_AVAILABLE = False
-
-
-class WhisperSTT:
+class ElevenLabsSTT:
     """
-    Local Whisper Speech-to-Text.
-    Supports 99 languages via faster-whisper or openai-whisper.
-    Completely free, no API key required.
-    
-    Models: tiny, base, small, medium, large-v3
-    - base: ~1GB RAM, good accuracy
-    - small: ~2GB RAM, better accuracy
-    - medium: ~5GB RAM, great accuracy
+    ElevenLabs Scribe Speech-to-Text.
+    Supports 90+ languages with word-level timestamps.
+    API: POST https://api.elevenlabs.io/v1/speech-to-text
     """
+
+    API_URL = "https://api.elevenlabs.io/v1/speech-to-text"
+    MODEL_ID = "scribe_v1"
+
+    MIME_MAP = {
+        ".wav": "audio/wav", ".wave": "audio/wav",
+        ".mp3": "audio/mpeg", ".mpeg": "audio/mpeg",
+        ".ogg": "audio/ogg", ".oga": "audio/ogg",
+        ".webm": "audio/webm",
+        ".flac": "audio/flac",
+        ".m4a": "audio/mp4",
+        ".aac": "audio/aac",
+        ".amr": "audio/amr",
+        ".opus": "audio/opus",
+    }
 
     def __init__(self, config=None):
         from ..config import STTConfig
         self.config = config or STTConfig()
-        self._model = None
-
-    def _get_model(self):
-        if self._model is not None:
-            return self._model
-
-        model_size = self.config.whisper_model
-        device = self.config.device
-
-        if FASTER_WHISPER_AVAILABLE:
-            self._model = WhisperModel(model_size, device=device, compute_type="int8")
-        elif WHISPER_AVAILABLE:
-            self._model = whisper.load_model(model_size, device=device)
-        else:
-            raise RuntimeError(
-                "No Whisper library available. Install: pip install faster-whisper"
-            )
-
-        return self._model
+        self._api_key = os.getenv("ELEVENLABS_API_KEY", "")
 
     async def transcribe(
         self,
@@ -68,91 +41,54 @@ class WhisperSTT:
         language_code: str = "en",
         filename: str = "audio.wav",
     ) -> Dict[str, Any]:
-        """
-        Transcribe audio bytes to text using local Whisper.
-        
-        Args:
-            audio_bytes: Raw audio data (WAV, MP3, OGG, etc.)
-            language_code: Language code (en, hi, bn, ta, te, etc.)
-            filename: Original filename (for format detection)
-        
-        Returns:
-            {
-                "text": "transcribed text",
-                "language": "detected language",
-                "confidence": 0.0-1.0,
-                "success": bool,
-                "error": str or None
+        if not self._api_key:
+            return {
+                "text": "",
+                "language": language_code,
+                "confidence": 0.0,
+                "success": False,
+                "error": "ELEVENLABS_API_KEY not set in .env",
             }
-        """
+
+        ext = os.path.splitext(filename)[1].lower()
+        mime = self.MIME_MAP.get(ext, "audio/wav")
+
         try:
-            model = self._get_model()
+            form = aiohttp.FormData()
+            form.add_field("model_id", self.MODEL_ID)
+            form.add_field(
+                "file",
+                audio_bytes,
+                filename=filename,
+                content_type=mime,
+            )
 
-            # Save to temp file for processing
-            suffix = os.path.splitext(filename)[1] or ".wav"
-            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
-                tmp.write(audio_bytes)
-                tmp_path = tmp.name
+            headers = {"xi-api-key": self._api_key}
 
-            try:
-                # Convert to WAV if needed
-                wav_path = tmp_path
-                if suffix.lower() not in (".wav", ".wave"):
-                    if PYDUB_AVAILABLE:
-                        audio = AudioSegment.from_file(tmp_path)
-                        wav_path = tmp_path + ".wav"
-                        audio.export(wav_path, format="wav")
-                    else:
-                        # Try reading directly
-                        wav_path = tmp_path
+            async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+                async with session.post(self.API_URL, headers=headers, data=form) as resp:
+                    if resp.status != 200:
+                        body = await resp.text()
+                        return {
+                            "text": "",
+                            "language": language_code,
+                            "confidence": 0.0,
+                            "success": False,
+                            "error": f"ElevenLabs API error {resp.status}: {body[:200]}",
+                        }
 
-                # Run transcription
-                lang = language_code.split("-")[0] if "-" in language_code else language_code
+                    result = await resp.json()
 
-                if FASTER_WHISPER_AVAILABLE:
-                    segments, info = model.transcribe(
-                        wav_path,
-                        language=lang,
-                        beam_size=5,
-                        vad_filter=True,
-                    )
-                    text_parts = []
-                    for segment in segments:
-                        text_parts.append(segment.text.strip())
-                    text = " ".join(text_parts)
-                    detected_lang = info.language
-                    confidence = info.language_probability
+            transcript = result.get("text", "")
+            detected = result.get("language_code", language_code)
 
-                elif WHISPER_AVAILABLE:
-                    result = model.transcribe(wav_path, language=lang)
-                    text = result["text"].strip()
-                    detected_lang = result.get("language", lang)
-                    confidence = 0.9
-
-                else:
-                    return {
-                        "text": "",
-                        "language": language_code,
-                        "confidence": 0.0,
-                        "success": False,
-                        "error": "No Whisper library available",
-                    }
-
-                # Clean up converted file
-                if wav_path != tmp_path and os.path.exists(wav_path):
-                    os.unlink(wav_path)
-
-                return {
-                    "text": text,
-                    "language": detected_lang,
-                    "confidence": confidence,
-                    "success": True,
-                    "error": None,
-                }
-
-            finally:
-                if os.path.exists(tmp_path):
-                    os.unlink(tmp_path)
+            return {
+                "text": transcript,
+                "language": detected,
+                "confidence": 0.95,
+                "success": True,
+                "error": None,
+            }
 
         except Exception as e:
             return {
@@ -160,9 +96,9 @@ class WhisperSTT:
                 "language": language_code,
                 "confidence": 0.0,
                 "success": False,
-                "error": f"Whisper STT error: {str(e)}",
+                "error": f"ElevenLabs STT error: {str(e)}",
             }
 
 
-# Keep alias for backward compatibility
-SarvamSTT = WhisperSTT
+WhisperSTT = ElevenLabsSTT
+SarvamSTT = ElevenLabsSTT

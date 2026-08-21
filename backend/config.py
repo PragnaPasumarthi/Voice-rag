@@ -1,6 +1,6 @@
 """
 Configuration for Voice-Enabled RAG Pipeline
-Uses NVIDIA NIM (free) for LLM + Whisper (free/local) for STT
+Uses NVIDIA NIM (free) for LLM + ElevenLabs Scribe for STT
 """
 import os
 from pathlib import Path
@@ -35,11 +35,11 @@ class VectorStoreConfig:
 
 @dataclass
 class STTConfig:
-    whisper_model: str = "base"
-    device: str = "cpu"
+    model_id: str = "scribe_v1"
     language: str = "en"
     supported_languages: list = field(default_factory=lambda: [
-        "en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "or", "pa"
+        "en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "or", "pa",
+        "es", "fr", "de", "pt", "ja", "ko", "zh", "ar", "ru", "it",
     ])
 
 
