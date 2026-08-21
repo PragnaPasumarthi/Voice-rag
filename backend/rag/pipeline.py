@@ -240,32 +240,35 @@ class RAGPipeline:
             )
 
     async def _generate_with_retries(self, query: str, contexts: List[str], source: str = "corpus") -> str:
-        context_block = "\n\n---\n\n".join(contexts)
+        numbered_context = "\n\n".join(f"[{i+1}] {ctx}" for i, ctx in enumerate(contexts))
 
         if source == "web":
             system_prompt = (
-                "You are a helpful AI assistant. Answer the user's question directly using the "
-                "web search results below. These are real-time search results from the internet. "
-                "Provide a clear, direct, factual answer. Be concise."
+                "You are a factual assistant. You are given web search results to answer a question. "
+                "IMPORTANT RULES:\n"
+                "1. ONLY state facts that are explicitly present in the search results below\n"
+                "2. If the search results do not contain the answer, say 'The search results do not contain enough information'\n"
+                "3. Do NOT make up, infer, or guess any facts\n"
+                "4. If results mention something tangentially, only mention it if it directly answers the question\n"
+                "5. Be concise — one or two sentences maximum"
             )
-            user_prompt = f"""Answer this question using the web search results below.
+            user_prompt = f"""Search results:
+{numbered_context}
 
-WEB SEARCH RESULTS:
-{context_block}
+Question: {query}
 
-QUESTION: {query}
-
-DIRECT ANSWER:"""
+Answer (only if the search results contain the answer):"""
         else:
             system_prompt = self._build_system_prompt()
-            user_prompt = f"""Answer the following question based on the provided context.
+            user_prompt = f"""Based ONLY on the context below, answer the question.
+If the context does not contain the answer, say exactly: "I don't have enough information to answer this question."
 
-CONTEXT:
-{context_block}
+Context:
+{numbered_context}
 
-QUESTION: {query}
+Question: {query}
 
-ANSWER:"""
+Answer:"""
 
         last_error = None
         for attempt in range(self.config.max_retries):
@@ -290,13 +293,12 @@ ANSWER:"""
         return f"I apologize, but I encountered an error generating the answer: {last_error}"
 
     def _build_system_prompt(self) -> str:
-        return """You are a helpful AI assistant that answers questions based on provided context.
-Rules:
-1. ONLY use information from the provided context
-2. If the context doesn't contain enough information, say "I don't have enough information to fully answer this question"
-3. Be concise and accurate
-4. Cite which part of the context supports your answer
-5. Do not hallucinate or make up facts"""
+        return """You are a factual assistant. Rules:
+1. ONLY use information explicitly stated in the provided context
+2. If the context does not contain enough information to answer, say EXACTLY: "I don't have enough information to answer this question."
+3. Do NOT make up, infer, or guess any information not in the context
+4. Be concise — one or two sentences
+5. If citing, reference the context fragment number [N]"""
 
     def get_latency_stats(self) -> Dict[str, Any]:
         return self.latency.get_stats()

@@ -48,7 +48,7 @@ class RAGConfig:
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1"
     model: str = "meta/llama-3.1-8b-instruct"
     max_tokens: int = 512
-    temperature: float = 0.3
+    temperature: float = 0.1
     max_retries: int = 3
     retry_delay: float = 0.5
 
