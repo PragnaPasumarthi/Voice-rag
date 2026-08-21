@@ -15,11 +15,15 @@ from ..analytics.latency import LatencyTracker
 logger = logging.getLogger(__name__)
 
 try:
-    from duckduckgo_search import DDGS
+    from ddgs import DDGS
     DDG_AVAILABLE = True
 except ImportError:
-    DDG_AVAILABLE = False
-    logger.warning("duckduckgo-search not installed, web fallback disabled")
+    try:
+        from duckduckgo_search import DDGS
+        DDG_AVAILABLE = True
+    except ImportError:
+        DDG_AVAILABLE = False
+        logger.warning("duckduckgo-search not installed, web fallback disabled")
 
 
 class PipelineStatus(str, Enum):
@@ -81,9 +85,11 @@ class RAGPipeline:
         if not DDG_AVAILABLE:
             return []
         try:
-            with DDGS() as ddgs:
-                results = list(ddgs.text(query, max_results=max_results))
-                return [r.get("body", "") for r in results if r.get("body")]
+            ddgs = DDGS()
+            results = list(ddgs.text(query, max_results=max_results))
+            bodies = [r.get("body", "") for r in results if r.get("body")]
+            logger.info(f"Web search for '{query[:50]}': got {len(bodies)} results")
+            return bodies
         except Exception as e:
             logger.warning(f"Web search failed: {e}")
             return []
@@ -238,15 +244,21 @@ class RAGPipeline:
 
         if source == "web":
             system_prompt = (
-                "You are a helpful AI assistant. The user's question was answered using "
-                "real-time web search results. Provide a clear, accurate, and concise answer "
-                "based on the following web search results. If the results don't contain the "
-                "answer, say so. Always cite your sources when possible."
+                "You are a helpful AI assistant. Answer the user's question directly using the "
+                "web search results below. These are real-time search results from the internet. "
+                "Provide a clear, direct, factual answer. Be concise."
             )
+            user_prompt = f"""Answer this question using the web search results below.
+
+WEB SEARCH RESULTS:
+{context_block}
+
+QUESTION: {query}
+
+DIRECT ANSWER:"""
         else:
             system_prompt = self._build_system_prompt()
-
-        user_prompt = f"""Answer the following question based on the provided context.
+            user_prompt = f"""Answer the following question based on the provided context.
 
 CONTEXT:
 {context_block}
