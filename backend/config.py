@@ -1,6 +1,5 @@
 """
 Configuration for Voice-Enabled RAG Pipeline
-Uses NVIDIA NIM (free) for LLM + ElevenLabs Scribe for STT
 """
 import os
 from pathlib import Path
@@ -52,6 +51,10 @@ class RAGConfig:
     temperature: float = 0.3
     max_retries: int = 3
     retry_delay: float = 0.5
+
+    @property
+    def has_llm(self) -> bool:
+        return bool(self.nvidia_api_key)
 
 
 @dataclass

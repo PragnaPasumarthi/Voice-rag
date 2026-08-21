@@ -1,6 +1,6 @@
 """
 RAG Pipeline with structured orchestration harness.
-Uses NVIDIA NIM (free) for LLM answer generation.
+Uses LLM for answer generation (if API key provided).
 """
 import time
 import logging
@@ -40,7 +40,7 @@ class PipelineResponse:
 class RAGPipeline:
     """
     Production RAG pipeline with:
-    - NVIDIA NIM free LLM for answer generation
+    - LLM-powered answer generation (optional)
     - Structured orchestration (retries, error recovery)
     - Guardrails integration
     - Latency analytics
@@ -70,7 +70,7 @@ class RAGPipeline:
                     base_url=self.config.nvidia_base_url,
                 )
             except ImportError:
-                raise RuntimeError("openai package not installed (needed for NVIDIA NIM)")
+                raise RuntimeError("openai package not installed (needed for LLM)")
         return self._llm_client
 
     async def process(
@@ -155,7 +155,10 @@ class RAGPipeline:
                 )
 
             # Step 5: Generate answer with retries
-            answer = await self._generate_with_retries(transcribed, contexts)
+            if self.config.has_llm:
+                answer = await self._generate_with_retries(transcribed, contexts)
+            else:
+                answer = "Based on the retrieved information:\n\n" + "\n\n---\n\n".join(contexts[:3])
 
             # Step 6: Grounding guardrail
             grounding_check = self.guardrails.check_grounding(
@@ -196,7 +199,7 @@ class RAGPipeline:
             )
 
     async def _generate_with_retries(self, query: str, contexts: List[str]) -> str:
-        """Generate answer with NVIDIA NIM LLM and structured retries."""
+        """Generate answer with LLM and structured retries."""
         context_block = "\n\n---\n\n".join(contexts)
         system_prompt = self._build_system_prompt()
         user_prompt = f"""Based ONLY on the following context, answer the question.
@@ -226,7 +229,7 @@ ANSWER:"""
 
             except Exception as e:
                 last_error = e
-                logger.warning(f"NVIDIA NIM attempt {attempt + 1} failed: {e}")
+                logger.warning(f"LLM attempt {attempt + 1} failed: {e}")
                 if attempt < self.config.max_retries - 1:
                     time.sleep(self.config.retry_delay * (attempt + 1))
 
