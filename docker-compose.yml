@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  rag-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - NVIDIA_API_KEY=${NVIDIA_API_KEY}
+    volumes:
+      - ./data/faiss_index:/app/data/faiss_index
+      - whisper-cache:/root/.cache/huggingface
+
+  rag-ui:
+    image: python:3.11-slim
+    ports:
+      - "8501:8501"
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: >
+      bash -c "pip install -r requirements.txt && streamlit run frontend/app.py --server.port 8501 --server.address 0.0.0.0"
+    environment:
+      - RAG_API_URL=http://rag-api:8000
+    depends_on:
+      - rag-api
+
+volumes:
+  whisper-cache:
