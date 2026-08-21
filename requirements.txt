@@ -19,8 +19,11 @@ scikit-learn>=1.5.0
 # Vector Store
 faiss-cpu>=1.8.0
 
-# LLM - NVIDIA NIM
+# LLM
 openai>=1.45.0
+
+# Web Search Fallback
+duckduckgo-search>=7.0.0
 
 # Dataset
 datasets>=2.21.0

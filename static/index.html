@@ -440,7 +440,9 @@ async function sendMessage(){
     const d = await r.json();
     hideTyping();
     if(d.status==='success'){
-      addMsg('bot', d.answer+'<div class="latency-badge">&#9889; '+Math.round(d.latency_ms)+'ms</div>', ts());
+      var badge = '<div class="latency-badge">&#9889; '+Math.round(d.latency_ms)+'ms</div>';
+      if(d.source==='web') badge = '<div class="latency-badge" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.2);color:#1d4ed8">&#127760; Web</div>' + badge;
+      addMsg('bot', d.answer+badge, ts());
     } else if(d.status==='guardrail_blocked'){
       addMsg('bot', '&#128683; '+d.error+'<br><small style="opacity:0.6">'+(d.answer||'')+'</small>', ts());
     } else if(d.status==='no_retrieval'){
@@ -484,7 +486,9 @@ async function uploadAudio(file){
     hideTyping();
     if(data.transcribed_text) addMsg('system','&#127908; Transcribed: <strong>'+data.transcribed_text+'</strong>');
     if(data.status==='success'){
-      addMsg('bot',data.answer+'<div class="latency-badge">&#9889; '+Math.round(data.latency_ms)+'ms</div>',ts());
+      var badge = '<div class="latency-badge">&#9889; '+Math.round(data.latency_ms)+'ms</div>';
+      if(data.source==='web') badge = '<div class="latency-badge" style="background:rgba(59,130,246,0.08);border-color:rgba(59,130,246,0.2);color:#1d4ed8">&#127760; Web</div>' + badge;
+      addMsg('bot',data.answer+badge,ts());
     } else {
       addMsg('bot','&#9888;&#65039; '+(data.error||data.answer||'Error processing audio'),ts());
     }

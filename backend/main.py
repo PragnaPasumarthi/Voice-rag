@@ -65,6 +65,10 @@ class TextQueryResponse(BaseModel):
     scores: list = []
     guardrail: Optional[dict] = None
     latency_ms: float = 0.0
+    retrieval_ms: float = 0.0
+    llm_ms: float = 0.0
+    web_search_ms: float = 0.0
+    source: str = "corpus"
     error: Optional[str] = None
 
 
@@ -136,6 +140,10 @@ async def text_query(req: TextQuery):
         scores=response.scores,
         guardrail=response.guardrail,
         latency_ms=response.latency_ms,
+        retrieval_ms=response.retrieval_ms,
+        llm_ms=response.llm_ms,
+        web_search_ms=response.web_search_ms,
+        source=response.source,
         error=response.error,
     )
 
@@ -170,6 +178,10 @@ async def voice_query(
         scores=response.scores,
         guardrail=response.guardrail,
         latency_ms=response.latency_ms,
+        retrieval_ms=response.retrieval_ms,
+        llm_ms=response.llm_ms,
+        web_search_ms=response.web_search_ms,
+        source=response.source,
         error=response.error,
     )
 
@@ -210,6 +222,46 @@ async def run_benchmark(queries: Optional[int] = 50):
         "How does FAISS similarity search work?",
         "What is attention mechanism in transformers?",
         "What is few-shot learning?",
+        "What is the capital of France?",
+        "Who invented the telephone?",
+        "What is photosynthesis?",
+        "Explain quantum computing",
+        "What is blockchain technology?",
+        "How does DNA replication work?",
+        "What is the theory of relativity?",
+        "Explain cloud computing",
+        "What is reinforcement learning?",
+        "How do convolutional neural networks work?",
+        "What is natural language generation?",
+        "What is the Internet of Things?",
+        "How does gradient descent work?",
+        "What is a GAN?",
+        "Explain unsupervised learning",
+        "What is sentiment analysis?",
+        "How does information retrieval work?",
+        "What is knowledge graph?",
+        "Explain recommendation systems",
+        "What is prompt engineering?",
+        "How do transformers architecture work?",
+        "What is bag of words model?",
+        "Explain TF-IDF weighting",
+        "What is word embedding?",
+        "How does Word2Vec work?",
+        "What is BERT model?",
+        "Explain GPT architecture",
+        "What is Retrieval Augmented Generation?",
+        "How does text classification work?",
+        "What is named entity recognition?",
+        "How does speech synthesis work?",
+        "What is the Internet today?",
+        "Who is the president of India?",
+        "What is climate change?",
+        "How does the stock market work?",
+        "What is cryptocurrency?",
+        "Explain data parallelism",
+        "What is model fine-tuning?",
+        "How does regularization work?",
+        "What is the vanishing gradient problem?",
     ]
 
     n = min(queries, len(sample_queries))
@@ -223,12 +275,17 @@ async def run_benchmark(queries: Optional[int] = 50):
         timer.stop()
         results.append({
             "query": q,
-            "latency_ms": timer.elapsed_ms,
+            "latency_ms": round(timer.elapsed_ms, 1),
+            "retrieval_ms": round(response.retrieval_ms, 1),
+            "llm_ms": round(response.llm_ms, 1),
+            "web_search_ms": round(response.web_search_ms, 1),
+            "source": response.source,
             "status": response.status.value,
         })
 
     stats = latency_tracker.get_stats("e2e")
     return {
+        "total_queries": n,
         "benchmark_results": results,
         "stats": stats,
         "report": latency_tracker.get_percentile_report(),
