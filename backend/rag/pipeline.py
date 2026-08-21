@@ -79,6 +79,7 @@ class RAGPipeline:
         audio_bytes: bytes = None,
         stt_module=None,
         language_code: str = "en",
+        filename: str = "audio.wav",
     ) -> PipelineResponse:
         """
         Full pipeline: input -> guard -> retrieve -> generate -> guard -> respond.
@@ -90,7 +91,7 @@ class RAGPipeline:
             # Step 1: Handle speech-to-text if audio provided
             transcribed = query
             if audio_bytes and stt_module:
-                stt_result = await stt_module.transcribe(audio_bytes, language_code)
+                stt_result = await stt_module.transcribe(audio_bytes, language_code, filename=filename)
                 if not stt_result["success"]:
                     timer.stop()
                     return PipelineResponse(

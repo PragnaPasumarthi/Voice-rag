@@ -152,10 +152,12 @@ async def voice_query(
 
     timer = latency_tracker.start("voice_query")
     audio_bytes = await audio.read()
+    filename = audio.filename or "audio.wav"
     response = await rag_pipeline.process(
         audio_bytes=audio_bytes,
         stt_module=stt_module,
         language_code=language,
+        filename=filename,
     )
     timer.stop()
 

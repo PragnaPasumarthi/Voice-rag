@@ -59,7 +59,7 @@ class RAGConfig:
 
 @dataclass
 class GuardrailsConfig:
-    max_relevance_score: float = 0.3
+    max_relevance_score: float = 0.15
     hallucination_threshold: float = 0.6
     blocked_keywords: list = field(default_factory=lambda: [
         "hack", "exploit", "bypass", "jailbreak", "ignore previous"
